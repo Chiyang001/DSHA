@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/assets/readme-logos.svg" width="288" height="112" alt="Chiyang001 开发者 Logo | DSHA APP Logo"></p>
+
 # DSHA — Deepseek Harness for Android
 
 这是一个单 APK 原型：在 Android 应用进程内嵌 Node.js，启动官方 `@deepseek-ai/dsh` 的 Web profile，并把手机设备操作能力注册为 Harness 工具。APK 不需要电脑在旁运行。当前构建只包含 `arm64-v8a`，最低 Android 11。
