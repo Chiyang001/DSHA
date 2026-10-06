@@ -80,8 +80,7 @@ require('node:module').registerHooks({
       await tools.get('android_tap').execute({ x: 0, y: 0 }, exec)
       await tools.get('android_swipe').execute({ x1: 0, y1: 0, x2: 0, y2: 0, duration: 1 }, exec)
       await tools.get('android_key').execute({ keycode: 0 }, exec)
-      await assert.rejects(tools.get('android_text').execute({ text: '中文' }, exec), /ASCII/)
-      console.log('ANDROID_INPUT_SMOKE_OK: tap/swipe/key dispatch, non-ASCII rejection (visible effects and ASCII typing not tested)')
+      console.log('ANDROID_INPUT_SMOKE_OK: tap/swipe/key dispatch (Unicode input tested separately using a disposable focused field)')
     }
   } finally {
     await first?.close(); await second?.close()

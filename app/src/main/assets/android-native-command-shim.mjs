@@ -11,10 +11,7 @@ export const {
   desktopApplicationIcon,
   desktopDataDirectories,
   desktopEntryFields,
-  nativeFileApplications,
   nativeFileManager,
-  openNativeAssociatedPath,
-  openNativeFileApplication,
   revealNativePath,
   runNativeCommand,
 } = original
@@ -22,3 +19,6 @@ export const {
 export const openNativePath = bridge.openNativePath
 export const openNativeTextFile = bridge.openNativeTextFile
 export const canOpenNativePath = bridge.canOpenNativePath
+export const openNativeAssociatedPath = bridge.openNativeAssociatedPath
+export const nativeFileApplications = bridge.nativeFileApplications
+export const openNativeFileApplication = bridge.openNativeFileApplication

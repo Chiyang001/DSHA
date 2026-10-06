@@ -6,6 +6,31 @@ const { join } = require('node:path')
 const { tmpdir } = require('node:os')
 const { pathToFileURL } = require('node:url')
 
+test('real Android bootstrap adapts native-command for ESM and CommonJS plugins', () => {
+  const temp = mkdtempSync(join(tmpdir(), 'dsha-plugin-interop-'))
+  try {
+    const code = `
+      const assert = require('node:assert/strict');
+      Object.defineProperty(process, 'platform', { value: 'android' });
+      require(${JSON.stringify(join(__dirname, 'mobile-bootstrap.cjs'))});
+      (async () => {
+        const cjs = require('@deepseek-ai/dsh-native-command');
+        const esm = await import('@deepseek-ai/dsh-native-command');
+        for (const mod of [cjs, esm]) {
+          assert.equal(mod.canOpenNativePath(), true);
+          assert.equal(typeof mod.runNativeCommand, 'function');
+          await assert.rejects(mod.openNativeAssociatedPath('relative.pdf'), /absolute Android/);
+          await assert.rejects(mod.openNativeFileApplication('/file.pdf', ''), /application identifier/);
+        }
+      })().catch(e => { console.error(e); process.exitCode = 1 });
+    `
+    const result = spawnSync(process.execPath, ['-e', code], {
+      cwd: __dirname, encoding: 'utf8', env: { ...process.env, DSH_HOME: join(temp, 'home') },
+    })
+    assert.equal(result.status, 0, result.stderr || result.stdout)
+  } finally { rmSync(temp, { recursive: true, force: true }) }
+})
+
 test('Android bootstrap redirects native-command to the Android shim', () => {
   const temp = mkdtempSync(join(tmpdir(), 'dsha-native-command-test-'))
   try {
@@ -74,7 +99,7 @@ export { createProcessInspector, LinuxProcessInspector };`)
         assert.ok(mod.createProcessInspector() instanceof mod.LinuxProcessInspector);
       })().catch(e => { console.error(e); process.exitCode = 1 });
     `
-    const result = spawnSync(process.execPath, ['-e', code], { encoding: 'utf8' })
+    const result = spawnSync(process.execPath, ['-e', code], { encoding: 'utf8', env: { ...process.env, DSH_HOME: join(temp, 'home') } })
     assert.equal(result.status, 0, result.stderr || result.stdout)
   } finally { rmSync(temp, { recursive: true, force: true }) }
 })
@@ -101,7 +126,7 @@ test('Android bootstrap loads the APK PTY library for CommonJS and ESM callers',
         assert.deepEqual(calls, ['/apk/libdshpty.so', '/apk/libdshpty.so']);
       })().catch(e => { console.error(e); process.exitCode = 1 });
     `
-    const result = spawnSync(process.execPath, ['-e', code], { encoding: 'utf8' })
+    const result = spawnSync(process.execPath, ['-e', code], { encoding: 'utf8', env: { ...process.env, DSH_HOME: join(temp, 'home') } })
     assert.equal(result.status, 0, result.stderr || result.stdout)
   } finally { rmSync(temp, { recursive: true, force: true }) }
 })
@@ -135,7 +160,7 @@ test('Android bootstrap redirects ESM flock and exclusively publishes session an
         assert.deepEqual(calls, [['a','b'],['c','d'],['e','f']]);
       })().catch(e => { console.error(e); process.exitCode=1 });
     `
-    const result = spawnSync(process.execPath, ['-e', code], { encoding: 'utf8' })
+    const result = spawnSync(process.execPath, ['-e', code], { encoding: 'utf8', env: { ...process.env, DSH_HOME: join(temp, 'home') } })
     assert.equal(result.status, 0, result.stderr)
   } finally { rmSync(temp, { recursive: true, force: true }) }
 })

@@ -31,6 +31,10 @@
         android:label="DeepSeek Harness Android"
         android:usesCleartextTraffic="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        <service android:name=".UnicodeInputService" android:label="DSHA Unicode 输入" android:exported="true" android:permission="android.permission.BIND_INPUT_METHOD">
+            <intent-filter><action android:name="android.view.InputMethod" /></intent-filter>
+            <meta-data android:name="android.view.im" android:resource="@xml/unicode_input" />
+        </service>
         <service android:name=".HarnessMonitorService" android:exported="false" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User requested AI task execution and live progress while controlling other phone applications" />
         </service>

@@ -136,11 +136,11 @@ window.__ModuleLoader__.load({
       const actionRow = (title, description, buttonLabel, onClick) => h('div', { className: 'Pt1bsG_row' },
         rowText(title, description),
         h(Button, { variant: 'outline', size: 'sm', disabled: busy || !state, onClick }, buttonLabel))
-      const toggleRow = (title, description, key) => h('div', { className: 'Pt1bsG_row' },
+      const toggleRow = (title, description, key, unavailable = false) => h('div', { className: 'Pt1bsG_row' },
         rowText(title, description),
         h(Switch, {
           checked: Boolean(state?.[key]),
-          disabled: busy || !state,
+          disabled: busy || !state || unavailable,
           label: title,
           onChange: (next) => action('updateAndroidSettings', { [key]: next }),
         }))
@@ -154,6 +154,34 @@ window.__ModuleLoader__.load({
           state?.shizukuStatus || '设备操作通过 Shizuku 授权完成。',
           state?.shizukuConnected ? '重新授权' : '授权 Shizuku',
           () => action('requestShizuku'),
+        ),
+        actionRow(
+          'Root 授权',
+          state?.rootStatus || '已 Root 的手机可点击检测，并在 Root 管理器中授予权限。',
+          '检测并授权 Root',
+          () => action('requestRoot'),
+        ),
+        toggleRow(
+          'Root 模式',
+          '开启后设备命令优先通过 su 执行。仍需开启设备控制；任意命令另需 shell 授权。',
+          'rootEnabled',
+          !state?.rootAvailable && !state?.rootEnabled,
+        ),
+        actionRow(
+          '虚拟副屏',
+          (state?.virtualDisplayStatus || '尚未开启') + '。创建 720×1280 的独立副屏；AI 使用前需枚举并选择真实显示 ID。副屏截图需要 Android 14+ 和 Shizuku。',
+          state?.virtualDisplayManaged ? '关闭虚拟副屏' : '创建虚拟副屏',
+          () => action(state?.virtualDisplayManaged ? 'closeVirtualDisplay' : 'createVirtualDisplay'),
+        ),
+        toggleRow('允许 DeepSeek 管理虚拟副屏', '允许 AI 按需创建或关闭 DSHA 副屏；还需开启设备控制。关闭此开关不会关闭当前副屏。', 'virtualDisplayAllowed'),
+        actionRow('模拟辅助显示设备', '可在开发者选项中手动配置，或管理已有副屏。', '打开开发者选项', () => action('openDisplaySettings')),
+        actionRow(
+          '悬浮窗权限',
+          state?.overlayGranted
+            ? '已授予悬浮窗权限，后台执行任务时可显示任务状态。'
+            : '尚未授予悬浮窗权限。可在系统设置中允许本应用显示悬浮窗。',
+          state?.overlayGranted ? '管理权限' : '授予权限',
+          () => action('openOverlaySettings'),
         ),
         actionRow(
           '存储访问',

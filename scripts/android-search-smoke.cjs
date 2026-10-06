@@ -1,0 +1,30 @@
+// Temporary debug preload: uses disposable private files and no model API.
+if (require('node:worker_threads').isMainThread) (async () => {
+  const assert = require('node:assert/strict')
+  const fs = require('node:fs/promises')
+  const path = require('node:path')
+  const dir = await fs.mkdtemp(path.join(require('node:os').tmpdir(), 'dsha-search-test-'))
+  try {
+    await fs.mkdir(path.join(dir, 'src'))
+    await fs.writeFile(path.join(dir, 'src', 'test.js'), '中文 hello\nvalue=42\n')
+    await fs.writeFile(path.join(dir, '.hidden'), 'hello')
+    const { LocalFileSystem } = await import('@deepseek-ai/dsh-fs-local')
+    const provider = Object.assign(Object.create(LocalFileSystem.prototype), { config: { cwd: dir, diffBasisMaxBytes: 65536 }, internals: {}, locks: new Map() })
+    const exec = { signal: new AbortController().signal, agent: { session: { header: { cwd: dir } } } }
+    const tools = new Map()
+    const adapter = await import('@deepseek-ai/dsh-tool-fs-search')
+    assert.equal(adapter.name, 'android-search')
+    adapter.apply({ fs: provider, tools: { register: tool => tools.set(tool.name, tool) } })
+    const glob = await tools.get('glob').execute({ pattern: '**/*.js' }, exec)
+    assert.equal(glob.paths.length, 1)
+    assert.equal(glob.paths[0], path.join(dir, 'src', 'test.js'))
+    const grep = await tools.get('grep').execute({ pattern: '中文|value=\\d+', include: '*.js' }, exec)
+    assert.deepEqual(grep.matches.map(m => m.lineNumber), [1, 2])
+    const direct = await tools.get('grep').execute({ pattern: 'hello', path: 'src/test.js' }, exec)
+    assert.equal(direct.matches.length, 1)
+    const hidden = await tools.get('glob').execute({ pattern: '*' }, exec)
+    assert.equal(hidden.paths.length, 2)
+    await assert.rejects(tools.get('grep').execute({ pattern: '[' }, exec), /SEARCH_INVALID_PATTERN/)
+    console.log('ANDROID_SEARCH_SMOKE_OK: official tool redirect, glob, Unicode regex grep, include, single-file, hidden, invalid regex')
+  } finally { await fs.rm(dir, { recursive: true, force: true }) }
+})().catch(error => console.error('ANDROID_SEARCH_SMOKE_FAILED', error))

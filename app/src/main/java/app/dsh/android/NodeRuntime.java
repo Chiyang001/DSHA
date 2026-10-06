@@ -84,6 +84,8 @@ final class NodeRuntime {
                 overlayAsset(context, "android-native-command.cjs", new File(runtime, "android-native-command.cjs"));
                 overlayAsset(context, "android-native-command-shim.mjs", new File(runtime, "android-native-command-shim.mjs"));
                 overlayAsset(context, "android-fs-search.js", new File(runtime, "android-fs-search.js"));
+                overlayAsset(context, "android-search.js", new File(runtime, "android-search.js"));
+                overlayAsset(context, "android-plugin-policy.cjs", new File(runtime, "android-plugin-policy.cjs"));
                 overlayAsset(context, "android-directory-picker.js",
                     new File(runtime, "android-directory-picker.js"));
                 overlayAsset(context, "android-directory-picker-backend.js",

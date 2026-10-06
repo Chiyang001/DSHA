@@ -36,15 +36,23 @@ function bridgeCall(method, fields, signal) {
   })
 }
 
-async function openNativePath(path, signal) {
+async function callPath(method, path, signal, fields = {}) {
   if (signal?.aborted) {
     const error = new Error('Aborted')
     error.name = 'AbortError'
     throw error
   }
-  await bridgeCall('openTextFile', { path }, signal)
+  if (typeof path !== 'string' || !path.startsWith('/') || path.includes('\0') || path.length > 4096)
+    throw new TypeError('Expected an absolute Android file path')
+  return bridgeCall(method, { path, ...fields }, signal)
 }
 
-exports.openNativeTextFile = openNativePath
-exports.openNativePath = openNativePath
+exports.openNativeTextFile = async (path, signal) => { await callPath('openTextFile', path, signal) }
+exports.openNativePath = async (path, signal) => { await callPath('openFile', path, signal) }
+exports.openNativeAssociatedPath = exports.openNativePath
+exports.nativeFileApplications = async (path, signal) => (await callPath('fileApplications', path, signal)).applications
+exports.openNativeFileApplication = async (path, application, signal) => {
+  if (typeof application !== 'string' || !application) throw new TypeError('Expected an application identifier')
+  await callPath('openFile', path, signal, { application })
+}
 exports.canOpenNativePath = () => true

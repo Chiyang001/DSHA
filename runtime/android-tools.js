@@ -242,6 +242,11 @@ export function apply(ctx) {
     'List Shizuku logical display IDs and names, including virtual secondary screens. Never guess a display ID.',
     {}, 'displays', value => JSON.stringify(value))
 
+  register(ctx, 'android_virtual_display',
+    'Create or close the DSHA simulated secondary display (720x1280). Requires explicit virtual-display management permission in Android settings and phone-control authorization. After creation call android_displays and android_select_display with the actual ID. Closing interrupts apps on that screen; never fall back to the main display.',
+    { enabled: { type: 'boolean', required: true, description: 'true creates the display; false closes the DSHA-created display' } },
+    'virtualDisplay', value => JSON.stringify(value))
+
   ctx.tools.register(defineTool({
     name: 'android_select_display',
     description: 'Select the display for this conversation before secondary-screen operations. First list android_displays. Subsequent screenshots, taps, swipes, keys, typing and app launches use this ID until explicitly changed. Secondary capture requires Android 14+ and Shizuku; unavailable displays never fall back to the main screen.',
@@ -266,7 +271,7 @@ export function apply(ctx) {
   }))
 
   register(ctx, 'android_launch_app',
-    'Launch an installed application package on the selected display. Use this instead of am start, monkey, or shell commands; inspect the returned screenshot to verify placement. Some apps or OEM policies may refuse secondary displays.',
+    'Resolve and explicitly launch an installed application launcher Activity on the selected display, including apps whose implicit launcher Intent cannot resolve. Verifies the foreground task display for secondary screens. Use this instead of am start, monkey, or shell; inspect the returned screenshot. On APP_DISPLAY_NOT_VERIFIED stop, inspect the secondary screen, and report; never retry on the main display.',
     { package: { type: 'string', required: true, description: 'Installed Android application package, e.g. com.android.settings' } },
     'launch', value => value.output, runAction)
 
@@ -367,8 +372,8 @@ export function apply(ctx) {
     { keycode: { type: 'number', required: true, description: 'Android keycode 0 to 300' } },
     'key', value => value.output || 'Key sent', runAction)
   register(ctx, 'android_text',
-    'Type up to 128 ASCII characters through ADB input text. Non-ASCII characters are not supported by this tool.',
-    { text: { type: 'string', required: true, description: 'ASCII text to type' } },
+    'Type Unicode text, including Chinese, emoji and newlines, into the focused input field (up to 4096 UTF-16 units). Chinese uses the built-in input method via Shizuku/Root and restores the previous keyboard. Focus the target field first and verify the returned screen; never retry uncertain input blindly.',
+    { text: { type: 'string', required: true, description: 'Text to insert, including Chinese or mixed-language text' } },
     'text', value => value.output || 'Text sent', runAction)
 
   const coordinateSpace = { type: 'string', enum: ['image', 'device', 'normalized'], description: 'Default image: pixels on the attached preview. device: original full-screen pixels. normalized: 0-1000 within the attached image.' }

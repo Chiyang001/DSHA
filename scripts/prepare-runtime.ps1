@@ -9,8 +9,8 @@ if (-not (Test-Path (Join-Path $runtimeDir 'node_modules/@deepseek-ai/dsh/lib/bi
 New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
 foreach ($name in @('android-host.js', 'android-tools.js', 'android-loop-guard.js', 'android-fast-screen.js',
     'android-coordinate-scale.js', 'android-ui-parse.js', 'android-screen-targets.js', 'android-screen-annotate.js', 'mobile-bootstrap.cjs',
-    'android-flock.cjs', 'android-network.cjs', 'android-native-command.cjs', 'android-fs-search.js', 'android-directory-picker.js',
-    'android-directory-picker-backend.js', 'android.patch.template.yml')) {
+    'android-flock.cjs', 'android-network.cjs', 'android-native-command.cjs', 'android-native-command-shim.mjs', 'android-fs-search.js', 'android-directory-picker.js',
+    'android-directory-picker-backend.js', 'android-search.js', 'android-plugin-policy.cjs', 'android.patch.template.yml')) {
     Copy-Item -LiteralPath (Join-Path $runtimeDir $name) -Destination (Join-Path $outputDir $name) -Force
 }
 foreach ($name in @('package.json', 'index.js', 'client.js', 'kernel-updater.js', 'kernel-worker.js')) {
@@ -38,7 +38,10 @@ try {
         'android-flock.cjs',
         'android-network.cjs',
         'android-native-command.cjs',
+        'android-native-command-shim.mjs',
         'android-fs-search.js'
+        'android-search.js'
+        'android-plugin-policy.cjs'
     ) | ForEach-Object { Get-Item (Join-Path $runtimeDir $_) }
     $files += Get-ChildItem (Join-Path $runtimeDir 'node_modules') -Recurse -File
     foreach ($file in $files) {

@@ -98,7 +98,7 @@ test('the Android settings section still renders its controls', () => {
     return textKids.some((node) => node?.props?.className === 'Pt1bsG_title')
   })
   /* Shizuku, storage access, and the two Harness switches. */
-  assert.equal(settingRows.length, 4)
+  assert.equal(settingRows.length, 10)
   assert.match(source, /Pt1bsG_row/)
   assert.match(source, /@deepseek-ai\/dsh-client-ui-primitives/)
   assert.doesNotMatch(source, /type: 'checkbox'/)

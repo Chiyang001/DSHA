@@ -32,6 +32,8 @@ if (process.platform === 'android') {
   const { join } = require('node:path')
   const adapter = pathToFileURL(join(__dirname, 'android-flock.cjs')).href
   const nativeCommandShim = pathToFileURL(join(__dirname, 'android-native-command-shim.mjs')).href
+  const searchAdapter = pathToFileURL(join(__dirname, 'android-search.js')).href
+  const pluginPolicy = pathToFileURL(join(__dirname, 'android-plugin-policy.cjs')).href
   const PTY_UTILS_MARKER = 'function loadNativeModule(name) {'
   const PTY_UTILS_PATCH = `${PTY_UTILS_MARKER}
     if (name === "pty" && process.platform === "android") {
@@ -50,10 +52,16 @@ if (process.platform === 'android') {
     resolve(specifier, context, nextResolve) {
       if (specifier === '@deepseek-ai/node-addon-system/flock') return { url: adapter, shortCircuit: true }
       if (specifier === '@deepseek-ai/dsh-native-command') return { url: nativeCommandShim, shortCircuit: true }
+      if (specifier === '@deepseek-ai/dsh-tool-fs-search') return { url: searchAdapter, shortCircuit: true }
       return nextResolve(specifier, context)
     },
     load(url, context, nextLoad) {
       const result = nextLoad(url, context)
+      if (url.includes('/@deepseek-ai/cordis-plugin-loader/lib/') && result.format === 'module') {
+        const source = typeof result.source === 'string' ? result.source : Buffer.from(result.source).toString('utf8')
+        const marker = 'async update(options, create = false, force = false) {'
+        if (source.includes(marker)) return { ...result, source: `import { normalizeEntry as __androidEntry } from ${JSON.stringify(pluginPolicy)};\n` + source.replace(marker, marker + '\n options = __androidEntry({ ...this.options, ...options });') }
+      }
       if (url.includes('/@deepseek-ai/dsh-llm-deepseek/lib/') && result.format === 'module') {
         const original = typeof result.source === 'string' ? result.source : Buffer.from(result.source).toString('utf8')
         const marker = 'throw new LlmError("DeepSeek Messages transport failed", "TRANSPORT", { cause: error });'
@@ -92,6 +100,14 @@ if (process.platform === 'android') {
 }
 const load = Module._load
 Module._load = function (request, parent, isMain) {
+  if (process.platform === 'android' && request === '@deepseek-ai/dsh-tool-fs-search')
+    return load.call(this, require('node:path').join(__dirname, 'android-search.js'), isMain)
+  if (process.platform === 'android' && request === '@deepseek-ai/dsh-native-command') {
+    // Preserve the upstream utility exports for CommonJS plugins too.
+    const original = load.call(this, require('node:path').join(__dirname,
+      'node_modules/@deepseek-ai/dsh-native-command/lib/index.js'), isMain)
+    return { ...original, ...require('./android-native-command.cjs') }
+  }
   if (request === 'node-addon-require-builtin') {
     return { requireBuiltin: (id) => require(id), isAllowedInternalId: () => true }
   }

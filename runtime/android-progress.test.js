@@ -12,7 +12,7 @@ test('Android progress preserves event order and exposes tool name and completio
   }
   try {
     let listener
-    apply({ tools: {register() {}}, on(name, fn) { assert.equal(name, 'session/event'); listener = fn } })
+    apply({ tools: {register() {}}, on(name, fn) { if (name === 'session/event') listener = fn } })
     const session = {id: 'test-session'}
     listener(session, {type:'turn/start',data:{}})
     listener(session, {type:'tool/call',data:{name:'android_tap',arguments:'private argument'}})

@@ -381,7 +381,7 @@ public class MainActivity extends Activity {
         if (shizuku != null) shizuku.refresh();
         HarnessMonitorService.visibility(false);
         if (wizardOverlay != null && wizardOverlay.getVisibility() == View.VISIBLE
-                && (wizardStep == 2 || wizardStep == 3)) {
+                && (wizardStep == 2 || wizardStep == 3 || wizardStep == 4)) {
             applyWizardStepContent(wizardStep);
         }
     }
@@ -397,7 +397,7 @@ public class MainActivity extends Activity {
 
     private void goWizardStep(int step, boolean instant) {
         int previous = wizardStep;
-        wizardStep = Math.max(0, Math.min(4, step));
+        wizardStep = Math.max(0, Math.min(5, step));
         boolean forward = wizardStep >= previous;
         Runnable apply = () -> applyWizardStepContent(wizardStep);
         if (instant || previous == wizardStep) {
@@ -419,8 +419,8 @@ public class MainActivity extends Activity {
                 bodyText(wizardBody, "按需授权\n由你决定是否开启设备控制与命令执行。");
                 break;
             case 1:
-                wizardTitle.setText("Shizuku 一键授权");
-                wizardSubtitle.setText("请先安装并启动 Shizuku，再点击下方按钮完成授权");
+                wizardTitle.setText("连接设备权限");
+                wizardSubtitle.setText("选择 Shizuku 授权，或在已 Root 的手机上开启 Root 模式");
                 bodyText(wizardBody, "Shizuku 会在系统层提供 shell 权限，无需手动配对无线调试。");
                 bodyText(wizardBody, "也可以跳过，稍后在设置中授权；未连接时仍可使用对话功能。");
                 Button auth = new Button(this);
@@ -437,6 +437,38 @@ public class MainActivity extends Activity {
                 });
                 shizuku.refresh();
                 wizardStatus.setText(shizuku.statusMessage());
+                bodyText(wizardBody, "已 Root 的手机也可以使用 Root 模式。开启后设备命令通过 su 执行，仍需下一步的设备控制授权。");
+                Button rootAuth = new Button(this);
+                UiKit.styleSecondaryButtonOnLight(rootAuth, this);
+                rootAuth.setText("检测并授权 Root");
+                wizardBody.addView(rootAuth, fullButton());
+                CheckBox rootMode = check("开启 Root 模式");
+                rootMode.setChecked(bridge != null && bridge.rootEnabled);
+                rootMode.setEnabled(bridge != null && (bridge.root.isReady() || bridge.rootEnabled));
+                wizardBody.addView(rootMode);
+                TextView rootStatus = UiKit.label(this, bridge == null ? "正在初始化…" : bridge.root.statusMessage(), 13, UiKit.TEXT_SECONDARY, Typeface.NORMAL);
+                wizardBody.addView(rootStatus);
+                rootAuth.setOnClickListener(v -> {
+                    rootAuth.setEnabled(false);
+                    rootStatus.setText("正在请求 Root，请在 Root 管理器中授权…");
+                    worker.execute(() -> {
+                        boolean granted = bridge != null && bridge.root.request();
+                        ui.post(() -> {
+                            rootAuth.setEnabled(true);
+                            rootMode.setEnabled(granted || (bridge != null && bridge.rootEnabled));
+                            rootStatus.setText(bridge == null ? "尚未初始化，请重试" : bridge.root.statusMessage());
+                        });
+                    });
+                });
+                rootMode.setOnCheckedChangeListener((button, enabled) -> {
+                    if (bridge == null || (enabled && !bridge.root.isReady())) {
+                        if (enabled) button.setChecked(false);
+                        return;
+                    }
+                    bridge.rootEnabled = enabled;
+                    getSharedPreferences(PREFS, 0).edit().putBoolean("root", enabled).apply();
+                    wizardPrimary.setText(enabled || shizuku.isReady() ? "下一步" : "暂时跳过");
+                });
                 break;
             case 2:
                 wizardTitle.setText("授权 Harness 操作");
@@ -488,6 +520,37 @@ public class MainActivity extends Activity {
                 wizardStatus.setText(overlayGranted ? "已开启：后台执行任务时会自动显示" : "尚未开启，可暂时跳过");
                 break;
             case 4:
+                wizardTitle.setText("虚拟副屏（可选）");
+                wizardSubtitle.setText("让 DeepSeek 在模拟辅助显示设备中操作，也可以跳过");
+                bodyText(wizardBody, "创建独立的 720×1280 副屏。需要 Shizuku 或 Root 授权；副屏截图和操作建议连接 Shizuku，截图需要 Android 14 及以上。");
+                bodyText(wizardBody, "创建后允许 DeepSeek 按需管理副屏。AI 会先查询实际显示 ID，再选择副屏操作；部分应用不支持副屏。");
+                Button virtualScreen = new Button(this);
+                UiKit.styleSecondaryButtonOnLight(virtualScreen, this);
+                virtualScreen.setText("创建虚拟副屏");
+                wizardBody.addView(virtualScreen, fullButton());
+                virtualScreen.setOnClickListener(v -> {
+                    virtualScreen.setEnabled(false);
+                    setVirtualDisplayStatus("正在创建虚拟副屏…");
+                    worker.execute(() -> {
+                        try {
+                            if (bridge == null) throw new IllegalStateException("应用正在初始化，请稍后重试");
+                            bridge.configureVirtualDisplay(true);
+                            setVirtualDisplayStatus("副屏已创建，可继续下一步；稍后可在 Android 设置中关闭");
+                        } catch (Exception error) { setVirtualDisplayStatus(error.getMessage()); }
+                        finally { ui.post(() -> virtualScreen.setEnabled(true)); }
+                    });
+                });
+                Button displaySettings = new Button(this);
+                UiKit.styleSecondaryButtonOnLight(displaySettings, this);
+                displaySettings.setText("在开发者选项中手动设置");
+                wizardBody.addView(displaySettings, fullButton());
+                displaySettings.setOnClickListener(v -> {
+                    try { startActivity(new Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)); }
+                    catch (android.content.ActivityNotFoundException error) { setVirtualDisplayStatus("系统未提供开发者选项入口，请在系统设置中开启开发者选项"); }
+                });
+                wizardStatus.setText("可选步骤，不设置也能继续使用主屏和对话功能");
+                break;
+            case 5:
                 wizardTitle.setText("一切就绪");
                 wizardSubtitle.setText("配置 DeepSeek API Key 后即可开始对话");
                 bodyText(wizardBody, webReady
@@ -525,6 +588,7 @@ public class MainActivity extends Activity {
             return;
         }
         if (wizardStep == 3) { goWizardStep(4); return; }
+        if (wizardStep == 4) { goWizardStep(5); return; }
         finishSetup();
     }
 
@@ -544,7 +608,7 @@ public class MainActivity extends Activity {
         switch (wizardStep) {
             case 0: wizardPrimary.setText("开始配置"); wizardPrimary.setEnabled(true); break;
             case 1:
-                wizardPrimary.setText(shizuku.isReady() ? "下一步" : "暂时跳过");
+                wizardPrimary.setText(shizuku.isReady() || (bridge != null && bridge.rootEnabled && bridge.root.isReady()) ? "下一步" : "暂时跳过");
                 wizardPrimary.setEnabled(true);
                 break;
             case 2: wizardPrimary.setText("下一步"); wizardPrimary.setEnabled(true); break;
@@ -552,13 +616,14 @@ public class MainActivity extends Activity {
                 wizardPrimary.setText(Settings.canDrawOverlays(this) ? "下一步" : "暂时跳过");
                 wizardPrimary.setEnabled(true);
                 break;
-            case 4: wizardPrimary.setText("完成"); wizardPrimary.setEnabled(true); break;
+            case 4: wizardPrimary.setText("继续 / 跳过"); wizardPrimary.setEnabled(true); break;
+            case 5: wizardPrimary.setText("完成"); wizardPrimary.setEnabled(true); break;
         }
     }
 
     private void rebuildStepDots() {
         stepDots.removeAllViews();
-        String[] steps = {"欢迎", "连接设备", "操作权限", "后台悬浮窗", "完成配置"};
+        String[] steps = {"欢迎", "连接设备", "操作权限", "后台悬浮窗", "虚拟副屏", "完成配置"};
         wizardProgress.setText("第" + (wizardStep + 1) + "/" + steps.length + "步 · " + steps[wizardStep]);
         for (int i = 0; i < steps.length; i++) {
             View dot = new View(this);
@@ -704,6 +769,8 @@ public class MainActivity extends Activity {
         boolean shell = getSharedPreferences(PREFS, 0).getBoolean("shell", false);
         bridge.controlEnabled = control;
         bridge.shellEnabled = shell;
+        bridge.rootEnabled = getSharedPreferences(PREFS, 0).getBoolean("root", false);
+        if (bridge.rootEnabled) bridge.root.request();
     }
 
     private void saveBridgePrefs() {
@@ -720,6 +787,13 @@ public class MainActivity extends Activity {
             if (wizardStatus != null && wizardOverlay.getVisibility() == View.VISIBLE && wizardStep == 1)
                 wizardStatus.setText(message);
             refreshWizardButtons();
+        });
+    }
+
+    private void setVirtualDisplayStatus(String message) {
+        ui.post(() -> {
+            if (wizardStatus != null && wizardOverlay.getVisibility() == View.VISIBLE && wizardStep == 4)
+                wizardStatus.setText(message);
         });
     }
 

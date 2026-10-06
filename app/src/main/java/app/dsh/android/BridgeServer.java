@@ -23,6 +23,9 @@ final class BridgeServer {
     private final Context context;
     private final AdbClient adb;
     private final ShizukuClient shizuku;
+    final RootClient root = new RootClient();
+    volatile boolean rootEnabled;
+    private static final String VIRTUAL_SCREEN = "720x1280/240,own_content_only,should_show_system_decorations";
     private final String token;
     volatile boolean controlEnabled = false;
     volatile boolean shellEnabled = false;
@@ -109,8 +112,9 @@ final class BridgeServer {
             return new JSONObject().put("ok", true);
         }
         if ("status".equals(method)) return new JSONObject()
-            .put("connected", shizuku.isReady() || adb.isConnected())
-            .put("transport", shizuku.isReady() ? "shizuku" : adb.isConnected() ? "wireless-adb" : "none")
+            .put("connected", deviceConnected())
+            .put("transport", transport())
+            .put("rootEnabled", rootEnabled).put("rootAvailable", root.isReady())
             .put("controlEnabled", controlEnabled)
             .put("shellEnabled", shellEnabled)
             .put("device", Build.MANUFACTURER + " " + Build.MODEL)
@@ -135,15 +139,51 @@ final class BridgeServer {
             return new JSONObject().put("restarting", true);
         }
         if ("androidSettings".equals(method)) return androidSettings();
+        if ("openDisplaySettings".equals(method)) {
+            runOnMain(() -> context.startActivity(new android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)));
+            return androidSettings();
+        }
+        if ("createVirtualDisplay".equals(method) || "closeVirtualDisplay".equals(method)) {
+            configureVirtualDisplay("createVirtualDisplay".equals(method));
+            return androidSettings();
+        }
+        if ("virtualDisplay".equals(method)) {
+            if (!controlEnabled) throw new IllegalStateException("设备控制未授权");
+            if (!context.getSharedPreferences("dsh_setup", 0).getBoolean("virtualDisplayAllowed", false))
+                throw new IllegalStateException("请先在 Android 设置中允许 DeepSeek 管理虚拟副屏");
+            configureVirtualDisplay(request.getBoolean("enabled"));
+            return androidSettings();
+        }
+        if ("requestRoot".equals(method)) { root.request(); return androidSettings(); }
+        if ("openOverlaySettings".equals(method)) {
+            runOnMain(() -> {
+                android.content.Intent intent = new android.content.Intent(
+                    android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    android.net.Uri.parse("package:" + context.getPackageName()))
+                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+                try { context.startActivity(intent); }
+                catch (android.content.ActivityNotFoundException ignored) {
+                    context.startActivity(new android.content.Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION)
+                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK));
+                }
+            });
+            return androidSettings();
+        }
         if ("updateAndroidSettings".equals(method)) {
             synchronized (this) {
                 boolean control = request.has("controlEnabled") ? request.getBoolean("controlEnabled") : controlEnabled;
                 boolean shell = request.has("shellEnabled") ? request.getBoolean("shellEnabled") : shellEnabled;
+                boolean useRoot = request.has("rootEnabled") ? request.getBoolean("rootEnabled") : rootEnabled;
+                if (useRoot && !root.isReady()) throw new IllegalStateException("请先检测并授权 Root，再开启 Root 模式");
                 if (!context.getSharedPreferences("dsh_setup", 0).edit()
-                    .putBoolean("control", control).putBoolean("shell", shell).commit())
+                    .putBoolean("control", control).putBoolean("shell", shell).putBoolean("root", useRoot).commit())
                     throw new IllegalStateException("设置保存失败，请重试");
                 controlEnabled = control;
                 shellEnabled = shell;
+                rootEnabled = useRoot;
+                if (request.has("virtualDisplayAllowed")) context.getSharedPreferences("dsh_setup", 0).edit()
+                    .putBoolean("virtualDisplayAllowed", request.getBoolean("virtualDisplayAllowed")).apply();
             }
             return androidSettings();
         }
@@ -171,9 +211,44 @@ final class BridgeServer {
             runOnMain(() -> openTextFile(path));
             return new JSONObject().put("ok", true);
         }
+        if ("openFile".equals(method) || "fileApplications".equals(method)) {
+            File source = authorizedDocument(request.getString("path"));
+            String mime = documentMime(source);
+            android.content.Intent probe = new android.content.Intent(android.content.Intent.ACTION_VIEW);
+            probe.setDataAndType(android.net.Uri.parse("content://" + context.getPackageName() + ".files/document"), mime);
+            java.util.List<android.content.pm.ResolveInfo> handlers = context.getPackageManager()
+                .queryIntentActivities(probe, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY);
+            if ("fileApplications".equals(method)) {
+                JSONArray applications = new JSONArray();
+                android.content.pm.ResolveInfo preferred = context.getPackageManager()
+                    .resolveActivity(probe, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY);
+                for (android.content.pm.ResolveInfo handler : handlers) {
+                    android.content.ComponentName component = new android.content.ComponentName(handler.activityInfo.packageName, handler.activityInfo.name);
+                    applications.put(new JSONObject().put("id", component.flattenToString())
+                        .put("name", handler.loadLabel(context.getPackageManager()).toString())
+                        .put("default", preferred != null && preferred.activityInfo != null
+                            && component.getPackageName().equals(preferred.activityInfo.packageName)
+                            && component.getClassName().equals(preferred.activityInfo.name))
+                        .put("icon", JSONObject.NULL));
+                }
+                return new JSONObject().put("applications", applications);
+            }
+            String application = request.optString("application", "");
+            android.content.ComponentName selected = null;
+            if (!application.isEmpty()) {
+                for (android.content.pm.ResolveInfo handler : handlers) {
+                    android.content.ComponentName candidate = new android.content.ComponentName(handler.activityInfo.packageName, handler.activityInfo.name);
+                    if (candidate.flattenToString().equals(application)) selected = candidate;
+                }
+                if (selected == null) throw new IllegalArgumentException("应用未注册为此文件的打开方式");
+            }
+            final android.content.ComponentName target = selected;
+            runOnMain(() -> openDocument(source.getPath(), mime, target));
+            return new JSONObject().put("ok", true);
+        }
         if ("listDirectory".equals(method)) return listDirectory(request);
-        if (!shizuku.isReady() && !adb.isConnected())
-            throw new IllegalStateException("请先在应用内完成 Shizuku 一键授权");
+        if (!deviceConnected())
+            throw new IllegalStateException(rootEnabled ? "Root 模式不可用，请重新检测授权或关闭 Root 模式" : "请先授权 Shizuku 或启用 Root 模式");
         if (!controlEnabled) throw new IllegalStateException("请在应用内开启“允许 Harness 控制手机”");
         if ("displays".equals(method)) return new JSONObject().put("displays", shizuku.displays());
         int displayId = request.has("displayId") ? bounded(request, "displayId", 0, Integer.MAX_VALUE) : 0;
@@ -198,8 +273,10 @@ final class BridgeServer {
                 break;
             case "text":
                 String value = request.getString("text");
-                if (value.length() > 128 || !value.matches("[\\x20-\\x7E]*"))
-                    throw new IllegalArgumentException("ADB input text 仅支持 128 字以内的 ASCII 文本");
+                if (value.isEmpty() || value.length() > 4096 || value.indexOf('\0') >= 0)
+                    throw new IllegalArgumentException("文字必须为 1 至 4096 个字符，不能包含 NUL");
+                if (displayId != 0 || !value.matches("[\\x20-\\x7E]*") || value.contains("%s") || value.length() > 128)
+                    return inputUnicode(value, displayId);
                 command = "input -d " + displayId + " text " + quote(value.replace(" ", "%s"));
                 break;
             case "ui":
@@ -215,9 +292,7 @@ final class BridgeServer {
                 String packageName = request.getString("package");
                 if (!packageName.matches("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+"))
                     throw new IllegalArgumentException("无效应用包名");
-                command = "am start --display " + displayId + (displayId == 0 ? "" : " -f 0x18000000")
-                    + " -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p " + quote(packageName);
-                break;
+                return launchApplication(packageName, displayId);
             case "shell":
                 if (displayId != 0) throw new IllegalStateException("副屏模式禁止任意 shell，避免未指定屏幕的命令操作主屏；请用 android_launch_app 和专用操作工具");
                 if (!shellEnabled) throw new IllegalStateException("任意 shell 命令未获应用内授权");
@@ -239,12 +314,58 @@ final class BridgeServer {
         return new JSONObject().put("ok", exitCode == 0).put("exitCode", exitCode)
             .put("output", text.substring(0, end))
             .put("displayId", displayId)
-            .put("transport", shizuku.isReady() ? "shizuku" : "wireless-adb")
+            .put("transport", transport())
             .put("durationMs", android.os.SystemClock.elapsedRealtime() - started);
     }
 
     private int screenRotation() {
         return context.getSystemService(WindowManager.class).getDefaultDisplay().getRotation();
+    }
+
+    private JSONObject launchApplication(String packageName, int displayId) throws Exception {
+        long started = android.os.SystemClock.elapsedRealtime();
+        String resolution = new String(execute("cmd package resolve-activity --brief --user current"
+            + " -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p " + quote(packageName), 16384), StandardCharsets.UTF_8);
+        android.content.ComponentName component = null;
+        for (String line : resolution.split("\\r?\\n")) {
+            String candidate = line.trim();
+            if (!candidate.matches("[A-Za-z0-9_.$]+/[A-Za-z0-9_.$]+")) continue;
+            android.content.ComponentName parsed = android.content.ComponentName.unflattenFromString(candidate);
+            if (parsed != null && packageName.equals(parsed.getPackageName())) component = parsed;
+        }
+        if (component == null) throw new IllegalStateException("APP_LAUNCHER_UNAVAILABLE: 未找到该应用的启动 Activity，请确认应用已安装且可启动");
+        String output = new String(execute("am start -W --user current --display " + displayId
+            + (displayId == 0 ? "" : " -f 0x18000000")
+            + " -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -n " + quote(component.flattenToString()), 256 * 1024), StandardCharsets.UTF_8);
+        if (output.contains("Error:") || output.contains("Exception") || output.contains("Status: timeout"))
+            throw new IllegalStateException("APP_LAUNCH_FAILED: " + output.trim());
+        if (displayId != 0) {
+            boolean verified = false;
+            for (int attempt = 0; attempt < 6; attempt++) {
+                displayInfo(displayId); // Reject a vanished display without touching main.
+                String activities = new String(execute("dumpsys activity activities", 1024 * 1024), StandardCharsets.UTF_8);
+                if (isPackageResumedOnDisplay(activities, packageName, displayId)) { verified = true; break; }
+                Thread.sleep(300);
+            }
+            if (!verified) throw new IllegalStateException("APP_DISPLAY_NOT_VERIFIED: 系统未确认应用在指定副屏前台运行，可能存在单实例或多屏限制；未执行主屏回退，请检查副屏截图");
+        }
+        return new JSONObject().put("ok", true).put("exitCode", 0).put("output", output.trim())
+            .put("component", component.flattenToString()).put("displayId", displayId)
+            .put("displayVerified", displayId != 0).put("transport", transport())
+            .put("durationMs", android.os.SystemClock.elapsedRealtime() - started);
+    }
+
+    static boolean isPackageResumedOnDisplay(String activities, String packageName, int displayId) {
+        int current = -1;
+        java.util.regex.Pattern header = java.util.regex.Pattern.compile("^Display #(\\d+).*");
+        java.util.regex.Pattern activity = java.util.regex.Pattern.compile("(?:topResumedActivity|mResumedActivity)\\s*[=:].*\\s"
+            + java.util.regex.Pattern.quote(packageName) + "/[A-Za-z0-9_.$]+");
+        for (String line : activities.split("\\r?\\n")) {
+            java.util.regex.Matcher match = header.matcher(line.trim());
+            if (match.matches()) current = Integer.parseInt(match.group(1));
+            else if (current == displayId && activity.matcher(line).find()) return true;
+        }
+        return false;
     }
 
     private JSONObject displayInfo(int id) throws Exception {
@@ -378,8 +499,79 @@ final class BridgeServer {
         return storageStatus()
             .put("shizukuConnected", shizuku.isReady())
             .put("shizukuStatus", shizuku.statusMessage())
+            .put("rootAvailable", root.isReady()).put("rootStatus", root.statusMessage())
+            .put("rootEnabled", rootEnabled)
+            .put("overlayGranted", android.provider.Settings.canDrawOverlays(context))
+            .put("virtualDisplayAllowed", context.getSharedPreferences("dsh_setup", 0).getBoolean("virtualDisplayAllowed", false))
+            .put("virtualDisplayEnabled", !virtualDisplaySetting().isEmpty())
+            .put("virtualDisplayManaged", VIRTUAL_SCREEN.equals(virtualDisplaySetting()))
+            .put("virtualDisplayStatus", virtualDisplaySetting().isEmpty() ? "尚未开启模拟辅助显示设备" : "已开启：" + virtualDisplaySetting())
+            .put("virtualDisplayCanManage", deviceConnected())
             .put("controlEnabled", controlEnabled)
             .put("shellEnabled", shellEnabled);
+    }
+
+    private String virtualDisplaySetting() {
+        String value = android.provider.Settings.Global.getString(context.getContentResolver(), "overlay_display_devices");
+        return value == null || value.equals("null") ? "" : value;
+    }
+
+    private synchronized JSONObject inputUnicode(String text, int displayId) throws Exception {
+        String ime = context.getPackageName() + "/.UnicodeInputService";
+        String previous = android.provider.Settings.Secure.getString(context.getContentResolver(), "default_input_method");
+        String enabled = new String(execute("settings get secure enabled_input_methods", 16384), StandardCharsets.UTF_8).trim();
+        boolean wasEnabled = enabled != null && java.util.Arrays.stream(enabled.split(":")).anyMatch(row -> row.split(";", 2)[0].equals(ime));
+        if (previous == null || previous.isEmpty()) throw new IllegalStateException("无法读取原输入法，未执行输入");
+        long started = android.os.SystemClock.elapsedRealtime();
+        try {
+            execute("ime enable " + quote(ime) + " && ime set " + quote(ime), 16384);
+            String selected = android.provider.Settings.Secure.getString(context.getContentResolver(), "default_input_method");
+            if (!ime.equals(selected)) throw new IllegalStateException("无法切换 Unicode 输入法，请检查 Shizuku 或 Root 授权");
+            UnicodeInputService.Target inputTarget = null;
+            for (int attempt = 0; attempt < 30; attempt++) {
+                UnicodeInputService.Target target = UnicodeInputService.target();
+                if (target != null) {
+                    String state = new String(execute("dumpsys input_method", 1024 * 1024), StandardCharsets.UTF_8);
+                    if (isInputTargetOnDisplay(state, target.uid, target.pid, displayId)) { inputTarget = target; break; }
+                }
+                Thread.sleep(100);
+            }
+            if (inputTarget == null) throw new IllegalStateException("INPUT_DISPLAY_MISMATCH: 系统未确认输入连接属于指定屏幕，请先点击该屏的输入框；键盘窗口在主屏并不表示副屏不能输入");
+            UnicodeInputService.commit(text, inputTarget);
+            return new JSONObject().put("ok", true).put("exitCode", 0).put("output", "Unicode 文字已提交，请检查输入框内容")
+                .put("displayId", displayId).put("transport", transport()).put("inputMethod", "unicode-ime")
+                .put("durationMs", android.os.SystemClock.elapsedRealtime() - started);
+        } finally {
+            try {
+                execute("ime set " + quote(previous) + (wasEnabled ? "" : "; ime disable " + quote(ime)), 16384);
+            } catch (Exception error) { android.util.Log.e("DSHAndroid", "恢复输入法失败，请在系统设置中手动切换", error); }
+        }
+    }
+
+    static boolean isInputTargetOnDisplay(String state, int uid, int pid, int displayId) {
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("mCurClient=ClientState\\{[^}]*mUid=(\\d+)\\s+mPid=(\\d+)\\s+mSelfReportedDisplayId=(\\d+)[^}]*\\}").matcher(state);
+        boolean found = false;
+        while (matcher.find()) {
+            if (Integer.parseInt(matcher.group(1)) != uid || Integer.parseInt(matcher.group(2)) != pid
+                    || Integer.parseInt(matcher.group(3)) != displayId) return false;
+            found = true;
+        }
+        return found;
+    }
+
+    synchronized void configureVirtualDisplay(boolean enabled) throws Exception {
+        if (!deviceConnected()) throw new IllegalStateException("请先连接 Shizuku 或授权 Root；也可在开发者选项中手动设置");
+        String current = virtualDisplaySetting();
+        android.content.SharedPreferences prefs = context.getSharedPreferences("dsh_setup", 0);
+        if (enabled) {
+            if (!current.isEmpty() && !current.equals(VIRTUAL_SCREEN)) throw new IllegalStateException("已有其他模拟副屏，请先在开发者选项中关闭，避免覆盖现有配置");
+            execute("settings put global overlay_display_devices " + quote(VIRTUAL_SCREEN), 16384);
+        } else {
+            if (!current.equals(VIRTUAL_SCREEN)) throw new IllegalStateException("当前副屏不是 DSHA 创建的，请在开发者选项中管理");
+            execute("settings delete global overlay_display_devices", 16384);
+        }
+        if (!virtualDisplaySetting().equals(enabled ? VIRTUAL_SCREEN : "")) throw new IllegalStateException("系统未接受虚拟副屏设置，请检查授权或开发者选项");
+        if (enabled) prefs.edit().putBoolean("virtualDisplayAllowed", true).apply();
     }
 
     private void runOnMain(Runnable action) throws Exception {
@@ -401,7 +593,7 @@ final class BridgeServer {
         if (!dir.isDirectory()) throw new IllegalStateException("不是目录：" + dirPath);
         JSONArray entries = listEntriesViaJava(dir);
         if ((entries == null || (entries.length() == 0 && isSharedStorage(dir.getAbsolutePath())))
-            && (shizuku.isReady() || adb.isConnected())) {
+            && deviceConnected()) {
             JSONArray shellEntries = listEntriesViaShell(dir);
             if (shellEntries != null && shellEntries.length() > 0) entries = shellEntries;
         }
@@ -443,7 +635,7 @@ final class BridgeServer {
     }
 
     private JSONArray listEntriesViaShell(File dir) throws Exception { // JSONException included
-        if (!shizuku.isReady() && !adb.isConnected()) return null;
+        if (!deviceConnected()) return null;
         String path = dir.getAbsolutePath();
         byte[] raw = execute("ls -1p " + shellQuote(path), 512 * 1024);
         String text = new String(raw, StandardCharsets.UTF_8).trim();
@@ -473,8 +665,12 @@ final class BridgeServer {
     }
 
     private byte[] execute(String command, int maxBytes) throws Exception {
+        if (rootEnabled) return root.execute(command, maxBytes);
         return shizuku.isReady() ? shizuku.execute(command, maxBytes) : adb.execute(command, maxBytes);
     }
+
+    private boolean deviceConnected() { return rootEnabled ? root.isReady() : shizuku.isReady() || adb.isConnected(); }
+    private String transport() { return rootEnabled ? (root.isReady() ? "root" : "none") : shizuku.isReady() ? "shizuku" : adb.isConnected() ? "wireless-adb" : "none"; }
 
     private static int coordinate(JSONObject data, String name) throws Exception {
         return bounded(data, name, 0, 10000);
@@ -490,17 +686,43 @@ final class BridgeServer {
     private static String quote(String text) { return "'" + text.replace("'", "'\\''") + "'"; }
 
     private void openTextFile(String pathStr) {
+        openDocument(pathStr, "text/plain", null);
+    }
+
+    private File authorizedDocument(String path) throws Exception {
+        if (path.isEmpty() || path.length() > 4096 || path.indexOf('\0') >= 0 || !new File(path).isAbsolute())
+            throw new IllegalArgumentException("路径无效");
+        File source = new File(path).getCanonicalFile();
+        if (!isAllowedDocumentPath(source)) throw new SecurityException("不允许打开该路径：" + path);
+        if (!source.isFile()) throw new IllegalStateException("文件不存在或不是普通文件");
+        return source;
+    }
+
+    private static String documentMime(File source) {
+        String name = source.getName();
+        int dot = name.lastIndexOf('.');
+        String extension = dot < 0 ? "" : name.substring(dot + 1).toLowerCase(java.util.Locale.ROOT);
+        String mime = android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension);
+        if (mime != null) return mime;
+        if (java.util.Arrays.asList("yml", "yaml", "json", "md", "log", "js", "ts", "toml", "ini").contains(extension)) return "text/plain";
+        return "application/octet-stream";
+    }
+
+    private void openDocument(String pathStr, String mime, android.content.ComponentName application) {
         try {
-            File source = new File(pathStr).getCanonicalFile();
-            if (!isAllowedDocumentPath(source)) throw new SecurityException("不允许打开该路径：" + pathStr);
-            if (!source.isFile()) throw new IllegalStateException("配置文件不存在");
+            File source = authorizedDocument(pathStr);
             File sharedDir = new File(context.getCacheDir(), "shared-documents");
             if (!sharedDir.exists() && !sharedDir.mkdirs()) throw new IllegalStateException("无法创建共享目录");
-            File shared = new File(sharedDir, source.getName());
+            File directory = new File(sharedDir, java.util.UUID.randomUUID().toString());
+            if (!directory.mkdir()) throw new IllegalStateException("无法创建共享目录");
+            File shared = new File(directory, source.getName());
             java.nio.file.Files.copy(source.toPath(), shared.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             android.net.Uri uri = androidx.core.content.FileProvider.getUriForFile(
                 context, context.getPackageName() + ".files", shared);
-            launchDocumentViewer(uri, "text/plain");
+            if (application == null) launchDocumentViewer(uri, mime);
+            else context.startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW)
+                .setDataAndType(uri, mime).setComponent(application)
+                .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION | android.content.Intent.FLAG_ACTIVITY_NEW_TASK));
         } catch (RuntimeException error) {
             android.util.Log.e("DSHAndroid", "openTextFile failed for " + pathStr, error);
             throw error;
@@ -515,7 +737,7 @@ final class BridgeServer {
         intent.setDataAndType(uri, mimeType);
         intent.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
             | android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
-        android.content.Intent chooser = android.content.Intent.createChooser(intent, "打开配置文件");
+        android.content.Intent chooser = android.content.Intent.createChooser(intent, "打开文件");
         chooser.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
         try {
             context.startActivity(chooser);
@@ -530,12 +752,16 @@ final class BridgeServer {
         String noBackup = context.getNoBackupFilesDir().getCanonicalPath();
         String files = context.getFilesDir().getCanonicalPath();
         String cache = context.getCacheDir().getCanonicalPath();
-        if (path.startsWith(noBackup) || path.startsWith(files) || path.startsWith(cache)) return true;
+        if (withinPath(path, noBackup) || withinPath(path, files) || withinPath(path, cache)) return true;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && Environment.isExternalStorageManager()) {
             String storage = Environment.getExternalStorageDirectory().getCanonicalPath();
-            return path.startsWith(storage);
+            return withinPath(path, storage);
         }
         return false;
+    }
+
+    private static boolean withinPath(String path, String root) {
+        return path.equals(root) || path.startsWith(root + File.separator);
     }
 
     private static void reply(Socket socket, int status, JSONObject json) throws Exception {
