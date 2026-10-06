@@ -1,0 +1,17 @@
+.gradle/
+.idea/
+local.properties
+app/build/
+app/.cxx/
+app/libnode/
+app/src/main/jniLibs/
+app/src/main/assets/runtime.zip
+runtime/node_modules/
+vendor/
+test-home/
+test-launch-url.txt
+runtime/android.patch.yml
+runtime/dump.yml
+*.apk
+build/
+.cursor/

@@ -1,0 +1,142 @@
+package app.dsh.android;
+
+import android.app.Instrumentation;
+import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.os.Bundle;
+import org.json.JSONObject;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+
+/** No model API calls or user text. Uses the user's existing control toggles. */
+public final class FastBridgeSmokeInstrumentation extends Instrumentation {
+    private BridgeServer bridge;
+    private Method dispatch;
+    private boolean webviewCompatOnly;
+
+    @Override public void onCreate(Bundle arguments) {
+        super.onCreate(arguments);
+        webviewCompatOnly = arguments != null && "true".equals(arguments.getString("webviewCompat"));
+        start();
+    }
+
+    private void verifyWebviewCompatibility(Bundle report) throws Exception {
+        String host;
+        try (java.io.InputStream input = getTargetContext().getAssets().open("android-host.js")) {
+            host = new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        }
+        String marker = "const ANDROID_COMPAT_SCRIPT = `";
+        int begin = host.indexOf(marker);
+        check(begin >= 0, "Compatibility script asset exists");
+        begin += marker.length();
+        String script = host.substring(begin, host.indexOf('`', begin));
+        java.util.concurrent.CountDownLatch finished = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.atomic.AtomicReference<String> result = new java.util.concurrent.atomic.AtomicReference<>();
+        android.webkit.WebView[] view = new android.webkit.WebView[1];
+        runOnMainSync(() -> {
+            view[0] = new android.webkit.WebView(getTargetContext());
+            view[0].getSettings().setJavaScriptEnabled(true);
+            view[0].evaluateJavascript(
+                "(function(){Promise.withResolvers=undefined;AbortSignal.any=undefined;" +
+                "Array.prototype.toSorted=undefined;" + script +
+                "var opening=Promise.withResolvers();opening.resolve('ready');" +
+                "var a=new AbortController(),b=new AbortController();" +
+                "var combined=AbortSignal.any([a.signal,b.signal]);b.abort('stopped');" +
+                "var clicks=0;var button=document.createElement('button');" +
+                "button.onclick=function(){clicks++};button.click();" +
+                "window.__compatResult='pending';opening.promise.then(function(value){" +
+                "window.__compatResult=(value==='ready'&&combined.aborted&&" +
+                "combined.reason==='stopped'&&clicks===1&&[2,1].toSorted()[0]===1)?'ok':'failed'});" +
+                "return 'started'})()", ignored -> view[0].evaluateJavascript(
+                    "window.__compatResult", value -> { result.set(value); finished.countDown(); }));
+        });
+        try {
+            check(finished.await(15, java.util.concurrent.TimeUnit.SECONDS), "WebView compatibility deadline");
+            check("\"ok\"".equals(result.get()), "WebView compatibility result: " + result.get());
+            report.putString("result", "WEBVIEW_COMPAT_SMOKE_OK");
+        } finally {
+            runOnMainSync(() -> view[0].destroy());
+        }
+    }
+
+    private JSONObject call(JSONObject request) throws Exception {
+        try { return (JSONObject) dispatch.invoke(bridge, request); }
+        catch (InvocationTargetException error) {
+            if (error.getCause() instanceof Exception) throw (Exception) error.getCause();
+            throw error;
+        }
+    }
+    private void check(boolean condition, String description) {
+        if (!condition) throw new AssertionError(description);
+    }
+
+    @Override public void onStart() {
+        Bundle report = new Bundle();
+        try {
+            if (webviewCompatOnly) {
+                verifyWebviewCompatibility(report);
+                finish(-1, report);
+                return;
+            }
+            startActivitySync(new Intent(getTargetContext(), MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            Field bridgeField = MainActivity.class.getDeclaredField("bridge");
+            bridgeField.setAccessible(true);
+            dispatch = BridgeServer.class.getDeclaredMethod("dispatch", JSONObject.class);
+            dispatch.setAccessible(true);
+            JSONObject status = null;
+            for (int i = 0; i < 100; i++) {
+                bridge = (BridgeServer) bridgeField.get(null);
+                if (bridge != null) {
+                    status = call(new JSONObject().put("method", "status"));
+                    if (status.optBoolean("connected")) break;
+                }
+                Thread.sleep(100);
+            }
+            check(status != null && status.optBoolean("connected"), "Existing Shizuku/ADB authorization required");
+            check(status.optBoolean("controlEnabled"), "Existing phone-control toggle required");
+            report.putString("transport", status.getString("transport"));
+
+            long started = android.os.SystemClock.elapsedRealtime();
+            JSONObject shot = call(new JSONObject().put("method", "screenshot").put("fast", true));
+            report.putLong("fastScreenshotMs", android.os.SystemClock.elapsedRealtime() - started);
+            check(shot.getString("fingerprint").length() == 64, "Screenshot fingerprint");
+            Bitmap preview = BitmapFactory.decodeFile(shot.getString("viewPath"));
+            check(preview != null && preview.getWidth() == shot.getInt("viewWidth") && preview.getHeight() == shot.getInt("viewHeight"), "Preview dimensions");
+            check(Math.max(preview.getWidth(), preview.getHeight()) <= 1260, "Image vision budget");
+            preview.recycle();
+            report.putString("preview", shot.getInt("viewWidth") + "x" + shot.getInt("viewHeight"));
+            report.putString("device", shot.getInt("width") + "x" + shot.getInt("height"));
+
+            JSONObject crop = call(new JSONObject().put("method", "screenshot").put("fast", true)
+                .put("crop_x", 100).put("crop_y", 200).put("crop_width", 300).put("crop_height", 150));
+            check(crop.getInt("cropLeft") == 100 && crop.getInt("cropTop") == 200 && crop.getInt("viewWidth") == 1260 && crop.getInt("viewHeight") == 630, "Crop and zoom geometry");
+
+            JSONObject tap = call(new JSONObject().put("method", "tap").put("x", 0).put("y", 0).put("expectedRotation", shot.getInt("rotation")));
+            check(tap.getBoolean("ok") && tap.getInt("exitCode") == 0, "Corner input command receipt");
+            report.putLong("tapCommandMs", tap.getLong("durationMs"));
+            check(tap.has("output"), "Empty stdout must have an explicit exit status");
+            try {
+                call(new JSONObject().put("method", "tap").put("x", 0).put("y", 0).put("expectedRotation", -1));
+                throw new AssertionError("Invalid orientation was accepted");
+            } catch (IllegalStateException expected) { check(expected.getMessage().contains("SCREEN_ROTATED"), "Orientation rejection"); }
+
+            if (status.optBoolean("shellEnabled")) {
+                JSONObject empty = call(new JSONObject().put("method", "shell").put("command", "true"));
+                check(empty.getBoolean("ok") && empty.getInt("exitCode") == 0 && empty.getString("output").isEmpty(), "Successful empty command");
+                JSONObject failed = call(new JSONObject().put("method", "shell").put("command", "false"));
+                check(!failed.getBoolean("ok") && failed.getInt("exitCode") == 1, "Failed empty command must not report success");
+                JSONObject quoted = call(new JSONObject().put("method", "shell").put("command", "printf '%s' \"DSHA 'quoted'\""));
+                check(quoted.getBoolean("ok") && quoted.getString("output").equals("DSHA 'quoted'"), "Command quoting preserves output");
+                report.putString("commandReceipts", "empty-success, nonzero-failure, quoting: passed");
+            } else report.putString("commandReceipts", "shell tests skipped: advanced shell toggle disabled");
+            report.putString("result", "FAST_BRIDGE_SMOKE_OK");
+            finish(-1, report);
+        } catch (Throwable error) {
+            report.putString("result", "FAST_BRIDGE_SMOKE_FAILED");
+            report.putString("error", error.getClass().getSimpleName() + ": " + error.getMessage());
+            finish(0, report);
+        }
+    }
+}

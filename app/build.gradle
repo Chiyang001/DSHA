@@ -1,0 +1,61 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'app.dsh.android'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'app.dsh.android'
+        minSdk 30
+        targetSdk 34
+        versionCode 1
+        versionName '0.1.0'
+        testInstrumentationRunner 'app.dsh.android.FastBridgeSmokeInstrumentation'
+        ndk { abiFilters 'arm64-v8a' }
+        externalNativeBuild {
+            cmake {
+                cppFlags '-std=c++20'
+                arguments '-DANDROID_STL=c++_shared'
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake { path 'CMakeLists.txt' }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    packaging {
+        jniLibs.useLegacyPackaging = true
+        resources.excludes += ['META-INF/DEPENDENCIES', 'META-INF/LICENSE*', 'META-INF/NOTICE*']
+    }
+}
+
+dependencies {
+    implementation 'com.google.mlkit:text-recognition-chinese:16.0.1'
+    implementation 'androidx.core:core:1.13.1'
+    implementation 'dev.rikka.shizuku:api:13.1.5'
+    implementation 'dev.rikka.shizuku:provider:13.1.5'
+    implementation 'com.github.MuntashirAkon:libadb-android:3.1.1'
+    implementation 'org.conscrypt:conscrypt-android:2.5.3'
+    implementation 'org.bouncycastle:bcprov-jdk15to18:1.84'
+    implementation 'org.bouncycastle:bcpkix-jdk15to18:1.84'
+}
+
+tasks.register('checkRuntimeZip') {
+    doLast {
+        def runtimeZip = file('src/main/assets/runtime.zip')
+        if (!runtimeZip.exists()) {
+            throw new GradleException(
+                'Missing app/src/main/assets/runtime.zip. Run ./scripts/prepare-runtime.ps1 before building.')
+        }
+    }
+}
+
+preBuild.dependsOn checkRuntimeZip
