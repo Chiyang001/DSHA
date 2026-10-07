@@ -164,8 +164,8 @@ public final class FastBridgeSmokeInstrumentation extends Instrumentation {
                 check(empty.getBoolean("ok") && empty.getInt("exitCode") == 0 && empty.getString("output").isEmpty(), "Successful empty command");
                 JSONObject failed = call(new JSONObject().put("method", "shell").put("command", "false"));
                 check(!failed.getBoolean("ok") && failed.getInt("exitCode") == 1, "Failed empty command must not report success");
-                JSONObject quoted = call(new JSONObject().put("method", "shell").put("command", "printf '%s' \"DSHA 'quoted'\""));
-                check(quoted.getBoolean("ok") && quoted.getString("output").equals("DSHA 'quoted'"), "Command quoting preserves output");
+                JSONObject quoted = call(new JSONObject().put("method", "shell").put("command", "printf '%s' \"DSHAN 'quoted'\""));
+                check(quoted.getBoolean("ok") && quoted.getString("output").equals("DSHAN 'quoted'"), "Command quoting preserves output");
                 report.putString("commandReceipts", "empty-success, nonzero-failure, quoting: passed");
             } else report.putString("commandReceipts", "shell tests skipped: advanced shell toggle disabled");
             report.putString("result", "FAST_BRIDGE_SMOKE_OK");

@@ -19,7 +19,7 @@ require('node:module').registerHooks({
     else console.log('ANDROID_DNS_SMOKE_OK', addresses.length)
   })
   const { publishNew } = require(path.join(__dirname, 'android-flock.cjs'))
-  const dir = await fs.mkdtemp(path.join(require('node:os').tmpdir(), 'dsha-native-test-'))
+  const dir = await fs.mkdtemp(path.join(require('node:os').tmpdir(), 'dshan-native-test-'))
   let first, second
   try {
     first = await fs.open(path.join(dir, 'lock'), 'w')
@@ -44,10 +44,10 @@ require('node:module').registerHooks({
     })
     const signal = new AbortController().signal
     const target = await provider.resolve('test.txt')
-    const written = await provider.writeText(target, 'DSHA_FILE_SMOKE_v1 中文', { kind: 'createIfAbsent' }, signal)
-    assert.equal(await provider.readText(target, signal), 'DSHA_FILE_SMOKE_v1 中文')
+    const written = await provider.writeText(target, 'DSHAN_FILE_SMOKE_v1 中文', { kind: 'createIfAbsent' }, signal)
+    assert.equal(await provider.readText(target, signal), 'DSHAN_FILE_SMOKE_v1 中文')
     await provider.editText(target, { oldString: 'v1', newString: 'v2', replaceAll: false }, { kind: 'replaceIfVersion', version: written.version }, signal)
-    assert.equal(await provider.readText(target, signal), 'DSHA_FILE_SMOKE_v2 中文')
+    assert.equal(await provider.readText(target, signal), 'DSHAN_FILE_SMOKE_v2 中文')
     const { search } = await import(require('node:url').pathToFileURL(path.join(__dirname, 'android-fs-search.js')))
     const exec = { signal, agent: { session: { header: { cwd: dir } } } }
     assert.equal(JSON.parse(await search(provider, { query: 'test.txt' }, exec, false)).matches.length, 1)
@@ -73,7 +73,7 @@ require('node:module').registerHooks({
       await readImageFile(imageRoot, ref, signal)
       console.log('ANDROID_IMAGE_SMOKE_OK: WASM decode/normalize, atomic attachment publication, image readback')
       if (status.shellEnabled) {
-        assert.equal(await tools.get('android_shell').execute({ command: 'printf DSHA_ANDROID_SMOKE' }, exec), 'DSHA_ANDROID_SMOKE')
+        assert.equal(await tools.get('android_shell').execute({ command: 'printf DSHAN_ANDROID_SMOKE' }, exec), 'DSHAN_ANDROID_SMOKE')
         console.log('ANDROID_SHELL_SMOKE_OK')
       }
       // At the upper-left edge; these do not target any app control or text.

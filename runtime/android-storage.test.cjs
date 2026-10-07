@@ -7,7 +7,7 @@ const { tmpdir } = require('node:os')
 const adapter = require('./android-flock.cjs')
 
 test('Attachment publication preserves source, refuses collisions and removes temporary files', async () => {
-  const dir = await fs.mkdtemp(join(tmpdir(), 'dsha-copy-test-'))
+  const dir = await fs.mkdtemp(join(tmpdir(), 'dshan-copy-test-'))
   const oldDlopen = process.dlopen
   const oldLibrary = process.env.DSH_ANDROID_FLOCK_LIBRARY
   process.env.DSH_ANDROID_FLOCK_LIBRARY = 'test-native'

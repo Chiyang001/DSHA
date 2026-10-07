@@ -28,10 +28,10 @@
         android:allowBackup="false"
         android:icon="@drawable/app_icon"
         android:roundIcon="@drawable/app_icon"
-        android:label="DeepSeek Harness Android"
+        android:label="DSHAN"
         android:usesCleartextTraffic="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
-        <service android:name=".UnicodeInputService" android:label="DSHA Unicode 输入" android:exported="true" android:permission="android.permission.BIND_INPUT_METHOD">
+        <service android:name=".UnicodeInputService" android:label="DSHAN Unicode 输入" android:exported="true" android:permission="android.permission.BIND_INPUT_METHOD">
             <intent-filter><action android:name="android.view.InputMethod" /></intent-filter>
             <meta-data android:name="android.view.im" android:resource="@xml/unicode_input" />
         </service>

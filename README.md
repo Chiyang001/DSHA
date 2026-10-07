@@ -1,18 +1,18 @@
-<p align="center"><img src="docs/assets/readme-logos.svg" width="288" height="112" alt="Chiyang001 开发者 Logo | DSHA APP Logo"></p>
+<p align="center"><img src="docs/assets/readme-logos.svg" width="288" height="112" alt="Chiyang001 开发者 Logo | DSHAN APP Logo"></p>
 
-<h1 align="center">DSHA</h1>
-<p align="center"><strong>Deepseek Harness for Android</strong></p>
+<h1 align="center">DSHAN</h1>
+<p align="center"><strong>Deepseek Harness for Android Native</strong></p>
 <p align="center">在手机上运行 DeepSeek Harness，让 AI 调用 Android 设备工具。</p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Android-11%2B-3DDC84?logo=android&amp;logoColor=white" alt="Android 11+">
   <img src="https://img.shields.io/badge/ABI-arm64--v8a-64748B" alt="arm64-v8a">
-  <a href="https://github.com/Chiyang001/DSHA/releases/tag/v1.1.1"><img src="https://img.shields.io/badge/Release-1.1.1-2563EB" alt="Release 1.1.1"></a>
+  <a href="https://github.com/Chiyang001/DSHAN/releases/tag/v1.1.1"><img src="https://img.shields.io/badge/Release-1.1.1-2563EB" alt="Release 1.1.1"></a>
   <img src="https://img.shields.io/badge/Status-开发原型-F59E0B" alt="开发原型">
 </p>
 
 <p align="center">
-  <a href="https://github.com/Chiyang001/DSHA/releases/download/v1.1.1/DSHA-1.1.1.apk"><strong>下载 APK</strong></a> ·
+  <a href="https://github.com/Chiyang001/DSHAN/releases/download/v1.1.1/DSHAN-1.1.1.apk"><strong>下载 APK</strong></a> ·
   <a href="#快速开始">快速开始</a> ·
   <a href="#内核更新">内核更新</a> ·
   <a href="#从源码构建">从源码构建</a> ·
@@ -23,7 +23,7 @@
 
 ## 项目简介
 
-DSHA 是一个单 APK 原型：在 Android 应用进程内嵌 Node.js，启动官方 `@deepseek-ai/dsh` 的 Web profile，并把手机设备操作能力注册为 Harness 工具。**APK 不需要电脑在旁运行。**
+DSHAN 是一个单 APK 原型：在 Android 应用进程内嵌 Node.js，启动官方 `@deepseek-ai/dsh` 的 Web profile，并把手机设备操作能力注册为 Harness 工具。**APK 不需要电脑在旁运行。**
 
 | 能力 | 说明 |
 | :--- | :--- |
@@ -39,7 +39,7 @@ DSHA 是一个单 APK 原型：在 Android 应用进程内嵌 Node.js，启动�
 
 ### 1. 安装与授权
 
-1. [下载并安装 APK](https://github.com/Chiyang001/DSHA/releases/download/v1.1.1/DSHA-1.1.1.apk)，打开应用，按引导向导完成初次配置。
+1. [下载并安装 APK](https://github.com/Chiyang001/DSHAN/releases/download/v1.1.1/DSHAN-1.1.1.apk)，打开应用，按引导向导完成初次配置。
 2. 在手机安装并启动 [Shizuku](https://shizuku.rikka.app/download/)。首次启动按 Shizuku 应用内指引开启系统无线调试并启动服务。
 3. 回到本应用，在引导向导中点击 **使用 Shizuku 一键授权**，接受授权弹窗。
 4. 在向导中开启 **允许 Harness 控制这台手机**。任意 shell 命令另有独立开关，默认关闭。
@@ -126,7 +126,7 @@ npm ci --prefix runtime --omit=dev --ignore-scripts --os=android --cpu=arm64 --l
 
 ### 插件兼容范围
 
-DSHA 保留 DSH 的 Cordis 插件接口，通过启动适配层接入 Android；内置和已下载内核均使用 APK 中的适配文件。
+DSHAN 保留 DSH 的 Cordis 插件接口，通过启动适配层接入 Android；内置和已下载内核均使用 APK 中的适配文件。
 
 | 插件依赖 | Android 行为与限制 |
 | :--- | :--- |
@@ -154,13 +154,13 @@ DSHA 保留 DSH 的 Cordis 插件接口，通过启动适配层接入 Android；
 
 ### 虚拟副屏
 
-欢迎向导的“虚拟副屏”步骤可以跳过；设置 → Android 设置提供创建、关闭、AI 管理授权和开发者选项入口。创建采用系统“模拟辅助显示设备”，默认 720×1280 / 240 dpi，使用独立内容模式。需要连接 Shizuku 或已授权的 Root；已有其他模拟副屏时不会覆盖，仅关闭配置匹配 DSHA 的副屏。
+欢迎向导的“虚拟副屏”步骤可以跳过；设置 → Android 设置提供创建、关闭、AI 管理授权和开发者选项入口。创建采用系统“模拟辅助显示设备”，默认 720×1280 / 240 dpi，使用独立内容模式。需要连接 Shizuku 或已授权的 Root；已有其他模拟副屏时不会覆盖，仅关闭配置匹配 DSHAN 的副屏。
 
 创建后允许 DeepSeek 使用 `android_virtual_display` 管理副屏；可随时关闭“允许 DeepSeek 管理虚拟副屏”。AI 仍需设备控制授权，并调用 `android_displays`、`android_select_display` 选择真实 ID。副屏截图需要 Android 14+ 和 Shizuku，部分应用不能在副屏启动；副屏不可用时不会自动操作主屏。关闭副屏会中断其中的应用任务。
 
 `android_launch_app` 通过系统包管理器解析当前用户的 Launcher Activity，再使用显式组件和指定显示 ID 启动，兼容微信、B 站等无法通过隐式 Launcher Intent 启动的应用。副屏启动后核对前台任务所在显示器；无法确认时报告 `APP_DISPLAY_NOT_VERIFIED`，不会转到主屏重试。2026-10-06 已在 OPPO / Shizuku 的临时副屏验证设置、B 站、微信的显式启动及显示 ID 核对。
 
-副屏文字输入统一使用 Unicode 输入法。Android 可能将键盘窗口显示在主屏，但输入连接仍属于副屏；DSHA 核对系统输入客户端的 UID、PID、显示 ID，以及提交前的输入连接和焦点版本，不能用键盘窗口所在屏幕判断输入目标。焦点不属于指定副屏时拒绝输入，不转到主屏。2026-10-06 已在副屏 22 的独立测试输入框验证中文、混合文本、Emoji、换行和原键盘恢复。
+副屏文字输入统一使用 Unicode 输入法。Android 可能将键盘窗口显示在主屏，但输入连接仍属于副屏；DSHAN 核对系统输入客户端的 UID、PID、显示 ID，以及提交前的输入连接和焦点版本，不能用键盘窗口所在屏幕判断输入目标。焦点不属于指定副屏时拒绝输入，不转到主屏。2026-10-06 已在副屏 22 的独立测试输入框验证中文、混合文本、Emoji、换行和原键盘恢复。
 
 权限预设依赖底层 `dsh-bash-sandbox` 服务，因此保留该服务，只移除桌面 Bash 工具入口。权限列表继续提供只读、工作区写入和完全访问；选择预设不会自动授予 Android、Shizuku 或 Root 权限。
 

@@ -10,7 +10,7 @@ test('phone tools block ineffective input, stale taps, unknown outcomes and runa
   const originalToken = process.env.DSH_ANDROID_BRIDGE_TOKEN
   process.env.DSH_ANDROID_BRIDGE_TOKEN = 'test-only'
   const tools = new Map(), listeners = new Map(), calls = [], cancellations = []
-  const folder = await mkdtemp(join(tmpdir(), 'dsha-fast-test-'))
+  const folder = await mkdtemp(join(tmpdir(), 'dshan-fast-test-'))
   const viewPath = join(folder, 'view.png')
   await writeFile(viewPath, 'mock-image-bytes')
   let label = '设置', failTap = false

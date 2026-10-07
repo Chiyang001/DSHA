@@ -41,7 +41,7 @@ final class AdbClient extends AbsAdbConnectionManager {
             KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
             generator.initialize(2048, new SecureRandom());
             KeyPair pair = generator.generateKeyPair();
-            X500Name subject = new X500Name("CN=DeepSeek Harness Android");
+            X500Name subject = new X500Name("CN=Deepseek Harness for Android Native");
             Date from = new Date(System.currentTimeMillis() - 60000);
             Date to = new Date(System.currentTimeMillis() + 20L * 365 * 86400000);
             JcaX509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
@@ -63,7 +63,7 @@ final class AdbClient extends AbsAdbConnectionManager {
 
     @Override protected PrivateKey getPrivateKey() { return key; }
     @Override protected Certificate getCertificate() { return certificate; }
-    @Override protected String getDeviceName() { return "DeepSeek Harness Android"; }
+    @Override protected String getDeviceName() { return "Deepseek Harness for Android Native"; }
 
     byte[] execute(String command, int maxBytes) throws Exception {
         if (!isConnected()) throw new IllegalStateException("无线 ADB 尚未连接");

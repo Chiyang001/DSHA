@@ -243,8 +243,8 @@ export function apply(ctx) {
     {}, 'displays', value => JSON.stringify(value))
 
   register(ctx, 'android_virtual_display',
-    'Create or close the DSHA simulated secondary display (720x1280). Requires explicit virtual-display management permission in Android settings and phone-control authorization. After creation call android_displays and android_select_display with the actual ID. Closing interrupts apps on that screen; never fall back to the main display.',
-    { enabled: { type: 'boolean', required: true, description: 'true creates the display; false closes the DSHA-created display' } },
+    'Create or close the DSHAN simulated secondary display (720x1280). Requires explicit virtual-display management permission in Android settings and phone-control authorization. After creation call android_displays and android_select_display with the actual ID. Closing interrupts apps on that screen; never fall back to the main display.',
+    { enabled: { type: 'boolean', required: true, description: 'true creates the display; false closes the DSHAN-created display' } },
     'virtualDisplay', value => JSON.stringify(value))
 
   ctx.tools.register(defineTool({

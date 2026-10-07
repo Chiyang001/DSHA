@@ -413,7 +413,7 @@ public class MainActivity extends Activity {
         switch (step) {
             case 0:
                 wizardTitle.setText("欢迎使用");
-                wizardSubtitle.setText("DeepSeek Harness for Android\n官方 Harness 在本机运行，无需电脑");
+                wizardSubtitle.setText("Deepseek Harness for Android Native\n官方 Harness 在本机运行，无需电脑");
                 wizardStatus.setText("");
                 bodyText(wizardBody, "本机运行\n让对话与工具在你的设备上协同工作。");
                 bodyText(wizardBody, "按需授权\n由你决定是否开启设备控制与命令执行。");

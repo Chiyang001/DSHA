@@ -56,7 +56,7 @@
 | android_ui | 实际桥接返回 UI hierarchy XML |
 | android_screenshot | 实际桥接返回 PNG，校验文件签名 |
 | 图片处理与存储 | 真机验证 WASM 解码/规范化、附件原子保存、完整性校验读取；不等于已验证所有模型的视觉能力 |
-| android_shell | 实际桥接执行 `printf DSHA_ANDROID_SMOKE`，返回符合预期 |
+| android_shell | 实际桥接执行 `printf DSHAN_ANDROID_SMOKE`，返回符合预期 |
 | tap/swipe/key | 真机验证上边缘无目标动作的指令派发；未据此宣称所有应用界面操作效果已验证 |
 | android_text | 非 ASCII 输入拒绝已验证；实际 ASCII 输入效果未验证，中文输入仍不支持 |
 | DNS 回退 | 真机 `dns.lookup` 解析 DeepSeek 域名通过；自动测试覆盖原生成功、family/all/order 和桥接失败保留原错误 |
@@ -92,7 +92,7 @@ node --test runtime/android-network.test.cjs runtime/android-storage.test.cjs ru
 
 APK 使用 NDK 编译 node-pty 的 Unix Node-API 源码，生成 Android arm64/bionic `libdshpty.so`。JNI 将库路径传给 bootstrap；CommonJS 加载和 ESM loader 均从 APK 原生库目录加载，不再复制 Linux/glibc prebuild。已下载内核同样使用启动时覆盖的 bootstrap。
 
-实体设备当前 0.2.0-rc.2 内核验证：`pty.spawn('/system/bin/sh', ['-i'])`、输入命令、输出 `DSHA_PTY_OK`、resize 和 exitCode=0 通过。临时自检已从最终 APK 移除。14 项回归测试通过，assembleDebug 成功，最终 APK 已安装。此验证覆盖终端原生运行层；未通过右侧面板 UI 完成一次端到端操作。Shell 运行于应用 UID，不等同于 Shizuku/ADB 的高权限 shell。
+实体设备当前 0.2.0-rc.2 内核验证：`pty.spawn('/system/bin/sh', ['-i'])`、输入命令、输出 `DSHAN_PTY_OK`、resize 和 exitCode=0 通过。临时自检已从最终 APK 移除。14 项回归测试通过，assembleDebug 成功，最终 APK 已安装。此验证覆盖终端原生运行层；未通过右侧面板 UI 完成一次端到端操作。Shell 运行于应用 UID，不等同于 Shizuku/ADB 的高权限 shell。
 
 ## 2026-10-04 侧栏折叠按钮：尝试后回退
 

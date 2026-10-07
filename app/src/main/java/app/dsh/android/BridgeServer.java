@@ -567,7 +567,7 @@ final class BridgeServer {
             if (!current.isEmpty() && !current.equals(VIRTUAL_SCREEN)) throw new IllegalStateException("已有其他模拟副屏，请先在开发者选项中关闭，避免覆盖现有配置");
             execute("settings put global overlay_display_devices " + quote(VIRTUAL_SCREEN), 16384);
         } else {
-            if (!current.equals(VIRTUAL_SCREEN)) throw new IllegalStateException("当前副屏不是 DSHA 创建的，请在开发者选项中管理");
+            if (!current.equals(VIRTUAL_SCREEN)) throw new IllegalStateException("当前副屏不是 DSHAN 创建的，请在开发者选项中管理");
             execute("settings delete global overlay_display_devices", 16384);
         }
         if (!virtualDisplaySetting().equals(enabled ? VIRTUAL_SCREEN : "")) throw new IllegalStateException("系统未接受虚拟副屏设置，请检查授权或开发者选项");

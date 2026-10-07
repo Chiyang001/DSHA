@@ -3,7 +3,7 @@ if (require('node:worker_threads').isMainThread) (async () => {
   const assert = require('node:assert/strict')
   const fs = require('node:fs/promises')
   const path = require('node:path')
-  const dir = await fs.mkdtemp(path.join(require('node:os').tmpdir(), 'dsha-search-test-'))
+  const dir = await fs.mkdtemp(path.join(require('node:os').tmpdir(), 'dshan-search-test-'))
   try {
     await fs.mkdir(path.join(dir, 'src'))
     await fs.writeFile(path.join(dir, 'src', 'test.js'), '中文 hello\nvalue=42\n')

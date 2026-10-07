@@ -48,12 +48,12 @@ final class SplashView extends FrameLayout {
         logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
         emblem.addView(logo, new FrameLayout.LayoutParams(dp(70), dp(70), Gravity.CENTER));
         content.addView(emblem, new LinearLayout.LayoutParams(dp(108), dp(108)));
-        TextView title = UiKit.label(context, "DeepSeek Harness", 26, UiKit.TEXT_ON_DARK, Typeface.NORMAL);
+        TextView title = UiKit.label(context, "DSHAN", 26, UiKit.TEXT_ON_DARK, Typeface.NORMAL);
         title.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
         title.setLetterSpacing(.04f);
         title.setGravity(Gravity.CENTER);
         add(title, -1, -2, 28);
-        TextView platform = UiKit.label(context, "Android", 11, 0xFF9BAABE, Typeface.NORMAL);
+        TextView platform = UiKit.label(context, "Deepseek Harness for Android Native", 11, 0xFF9BAABE, Typeface.NORMAL);
         platform.setGravity(Gravity.CENTER);
         platform.setPadding(dp(14), dp(5), dp(14), dp(5));
         GradientDrawable pill = new GradientDrawable();

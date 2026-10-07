@@ -173,7 +173,7 @@ window.__ModuleLoader__.load({
           state?.virtualDisplayManaged ? '关闭虚拟副屏' : '创建虚拟副屏',
           () => action(state?.virtualDisplayManaged ? 'closeVirtualDisplay' : 'createVirtualDisplay'),
         ),
-        toggleRow('允许 DeepSeek 管理虚拟副屏', '允许 AI 按需创建或关闭 DSHA 副屏；还需开启设备控制。关闭此开关不会关闭当前副屏。', 'virtualDisplayAllowed'),
+        toggleRow('允许 DeepSeek 管理虚拟副屏', '允许 AI 按需创建或关闭 DSHAN 副屏；还需开启设备控制。关闭此开关不会关闭当前副屏。', 'virtualDisplayAllowed'),
         actionRow('模拟辅助显示设备', '可在开发者选项中手动配置，或管理已有副屏。', '打开开发者选项', () => action('openDisplaySettings')),
         actionRow(
           '悬浮窗权限',

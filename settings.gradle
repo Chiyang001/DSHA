@@ -13,5 +13,5 @@ dependencyResolutionManagement {
         maven { url 'https://jitpack.io' }
     }
 }
-rootProject.name = 'DeepSeekHarnessAndroid'
+rootProject.name = 'DSHAN'
 include ':app'

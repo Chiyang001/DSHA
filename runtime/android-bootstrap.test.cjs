@@ -7,7 +7,7 @@ const { tmpdir } = require('node:os')
 const { pathToFileURL } = require('node:url')
 
 test('real Android bootstrap adapts native-command for ESM and CommonJS plugins', () => {
-  const temp = mkdtempSync(join(tmpdir(), 'dsha-plugin-interop-'))
+  const temp = mkdtempSync(join(tmpdir(), 'dshan-plugin-interop-'))
   try {
     const code = `
       const assert = require('node:assert/strict');
@@ -32,7 +32,7 @@ test('real Android bootstrap adapts native-command for ESM and CommonJS plugins'
 })
 
 test('Android bootstrap redirects native-command to the Android shim', () => {
-  const temp = mkdtempSync(join(tmpdir(), 'dsha-native-command-test-'))
+  const temp = mkdtempSync(join(tmpdir(), 'dshan-native-command-test-'))
   try {
     const native = join(temp, 'node_modules/@deepseek-ai/dsh-native-command/lib/index.js')
     mkdirSync(require('node:path').dirname(native), { recursive: true })
@@ -79,7 +79,7 @@ Module.registerHooks({
 })
 
 test('Android bootstrap maps subprocess-local terminal inspection to linux', () => {
-  const temp = mkdtempSync(join(tmpdir(), 'dsha-inspector-test-'))
+  const temp = mkdtempSync(join(tmpdir(), 'dshan-inspector-test-'))
   try {
     const runner = join(temp, 'node_modules/@deepseek-ai/dsh-subprocess-local/lib/runner-launch-test.js')
     mkdirSync(require('node:path').dirname(runner), { recursive: true })
@@ -105,7 +105,7 @@ export { createProcessInspector, LinuxProcessInspector };`)
 })
 
 test('Android bootstrap loads the APK PTY library for CommonJS and ESM callers', () => {
-  const temp = mkdtempSync(join(tmpdir(), 'dsha-pty-test-'))
+  const temp = mkdtempSync(join(tmpdir(), 'dshan-pty-test-'))
   try {
     const utils = join(temp, 'node_modules/node-pty/lib/utils.js')
     mkdirSync(require('node:path').dirname(utils), { recursive: true })
@@ -132,7 +132,7 @@ test('Android bootstrap loads the APK PTY library for CommonJS and ESM callers',
 })
 
 test('Android bootstrap redirects ESM flock and exclusively publishes session and filesystem temp files', () => {
-  const temp = mkdtempSync(join(tmpdir(), 'dsha-loader-test-'))
+  const temp = mkdtempSync(join(tmpdir(), 'dshan-loader-test-'))
   try {
     const session = join(temp, 'node_modules/@deepseek-ai/dsh-session-persistence-jsonl/lib/index.js')
     const local = join(temp, 'node_modules/@deepseek-ai/dsh-fs-local/lib/index.js')

@@ -92,7 +92,7 @@ public class HarnessMonitorService extends Service {
     private Notification notification(String text) {
         PendingIntent open = PendingIntent.getActivity(this, 0, new Intent(this, MainActivity.class), PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         return new Notification.Builder(this, "harness").setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("DeepSeek Harness").setContentText(text).setContentIntent(open).setOngoing(true).build();
+            .setContentTitle("DSHAN").setContentText(text).setContentIntent(open).setOngoing(true).build();
     }
     private void render() {
         String text = tasks.isEmpty() ? latest : tasks.values().stream().reduce((a,b) -> b).orElse(latest);
