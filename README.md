@@ -7,12 +7,10 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Android-11%2B-3DDC84?logo=android&amp;logoColor=white" alt="Android 11+">
   <img src="https://img.shields.io/badge/ABI-arm64--v8a-64748B" alt="arm64-v8a">
-  <a href="https://github.com/Chiyang001/DSHAN/releases/tag/v1.1.1"><img src="https://img.shields.io/badge/Release-1.1.1-2563EB" alt="Release 1.1.1"></a>
   <img src="https://img.shields.io/badge/Status-开发原型-F59E0B" alt="开发原型">
 </p>
 
 <p align="center">
-  <a href="https://github.com/Chiyang001/DSHAN/releases/download/v1.1.1/DSHAN-1.1.1.apk"><strong>下载 APK</strong></a> ·
   <a href="#快速开始">快速开始</a> ·
   <a href="#内核更新">内核更新</a> ·
   <a href="#从源码构建">从源码构建</a> ·
@@ -33,13 +31,13 @@ DSHAN 是一个单 APK 原型：在 Android 应用进程内嵌 Node.js，启动�
 | 内核更新 | 在设置中下载并切换 DSH 内核，保留会话与设置 |
 
 > [!NOTE]
-> 当前发布支持 **Android 11 及以上 / arm64-v8a**。Release 为 **1.1.1**，附件为 debug 签名 APK，其内部 `versionName` 为 **1.1.1**、`versionCode` 为 **2**。首次运行会解包官方 npm 包，请预留数百 MB 可用存储。
+> 本仓库仅提供源码，不提供 Release 或预构建 APK。自行构建支持 **Android 11 及以上 / arm64-v8a**。首次运行会解包官方 npm 包，请预留数百 MB 可用存储。
 
 ## 快速开始
 
 ### 1. 安装与授权
 
-1. [下载并安装 APK](https://github.com/Chiyang001/DSHAN/releases/download/v1.1.1/DSHAN-1.1.1.apk)，打开应用，按引导向导完成初次配置。
+1. 按[从源码构建](#从源码构建)生成并安装 APK，打开应用，按引导向导完成初次配置。
 2. 在手机安装并启动 [Shizuku](https://shizuku.rikka.app/download/)。首次启动按 Shizuku 应用内指引开启系统无线调试并启动服务。
 3. 回到本应用，在引导向导中点击 **使用 Shizuku 一键授权**，接受授权弹窗。
 4. 在向导中开启 **允许 Harness 控制这台手机**。任意 shell 命令另有独立开关，默认关闭。
